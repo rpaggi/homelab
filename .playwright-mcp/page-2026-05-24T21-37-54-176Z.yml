@@ -1,0 +1,9 @@
+- main [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - heading "Homelab" [level=1] [ref=e7]
+      - paragraph [ref=e8]: 0 containers em execução
+    - generic [ref=e9]:
+      - searchbox "Filtrar por nome, imagem, grupo…" [ref=e10]
+      - img [ref=e11]
+  - generic [ref=e13]: carregando containers…
