@@ -23,6 +23,7 @@
 - 🔍 **Auto-descoberta** — lista todo container Docker em execução, sem precisar cadastrar nada.
 - 🏷️ **Customização via labels** — dê nome bonito, ícone, descrição e grupo aos seus serviços direto no `docker-compose.yml`.
 - 🌐 **Host-aware** — funciona sem config em **LAN, Tailscale ou hostname** simultaneamente: a URL dos cards usa o mesmo host que você usou pra abrir o dashboard.
+- ✏️ **Modo edição na UI** — arraste pra reordenar e clique no olho pra esconder cards. Persiste em `data/settings.json` (sem banco).
 - 🎯 **Filtro instantâneo** — busque por nome, imagem, descrição ou grupo.
 - 📦 **Agrupamento** — cards organizados por categoria (Media, Database, System…).
 - 🔄 **Auto-refresh** — recarrega a lista a cada 10s (configurável).
@@ -132,6 +133,30 @@ labels:
 
 ---
 
+## ✏️ Modo edição
+
+Clique em **Editar** no header pra:
+
+- **Arrastar e soltar** cards pra reordenar dentro de cada grupo (drag-and-drop).
+- **Esconder/mostrar** containers que você não quer ver na home (clique no ícone de olho no canto do card).
+
+Tudo é salvo automaticamente em `./data/settings.json` no host. Sem banco, sem mágica:
+
+```json
+{
+  "order": ["plex", "sonarr", "homelab"],
+  "containers": {
+    "mysql-test": { "hidden": true }
+  }
+}
+```
+
+A chave é o **nome real do container** Docker — estável entre recreates. Você pode editar esse arquivo na mão se quiser; o dashboard pega na próxima request.
+
+> 💡 **Backup**: o `data/` é um diretório no host. Copie pra qualquer lugar pra fazer backup das suas preferências.
+
+---
+
 ## ⚙️ Variáveis de ambiente
 
 Definidas no `docker-compose.yml`:
@@ -139,6 +164,7 @@ Definidas no `docker-compose.yml`:
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
 | `HOMELAB_REFRESH_MS` | `10000` | Intervalo (ms) em que o frontend recarrega a lista. `0` desativa. |
+| `HOMELAB_DATA_DIR` | `/app/data` | Pasta dentro do container onde `settings.json` é gravado (precisa de bind mount). |
 | `DOCKER_SOCKET` | `/var/run/docker.sock` | Caminho do socket Docker dentro do container. |
 
 ---
@@ -167,21 +193,28 @@ node .output/server/index.mjs
 homelab/
 ├── app.vue                       # Root da aplicação
 ├── pages/
-│   └── index.vue                 # Catálogo principal (filtro + cards)
+│   └── index.vue                 # Catálogo (filtro, edit mode, drag-and-drop)
 ├── components/
-│   └── ContainerCard.vue         # Card individual de container
+│   └── ContainerCard.vue         # Card individual
+├── composables/
+│   └── useHomelabSettings.ts     # Load/save settings (debounced PUT)
 ├── server/
 │   ├── api/
-│   │   └── containers.get.ts     # Endpoint que lê o Docker socket
+│   │   ├── containers.get.ts     # Lê Docker socket + merge settings
+│   │   ├── settings.get.ts       # Retorna settings persistidas
+│   │   └── settings.put.ts       # Salva settings
 │   └── utils/
-│       └── docker.ts             # Cliente dockerode (singleton)
+│       ├── docker.ts             # Cliente dockerode (singleton)
+│       └── settings.ts           # Read/write JSON com cache em memória
 ├── types/
-│   └── container.ts              # Tipos compartilhados
+│   ├── container.ts              # Tipo do container
+│   └── settings.ts               # Schema das settings
+├── data/                         # (bind mount) settings.json mora aqui
 ├── assets/css/tailwind.css
 ├── nuxt.config.ts
 ├── tailwind.config.js
 ├── Dockerfile                    # Multi-stage: build → node:alpine
-└── docker-compose.yml            # Mapeia 80:3000 e monta docker.sock
+└── docker-compose.yml            # 80:3000 + docker.sock + ./data
 ```
 
 ---
@@ -226,10 +259,12 @@ O dashboard monta `/var/run/docker.sock` em **read-only** (`:ro`). Ele só **lê
 
 ## 🗺️ Roadmap
 
+- [x] Persistir preferências (ordem / hide) em JSON local
+- [x] Drag-and-drop pra reordenar
 - [ ] Suporte a containers parados (badge cinza + ação de start)
 - [ ] Health check visual baseado no `HEALTHCHECK` do Docker
 - [ ] Modo claro / dark toggle
 - [ ] Suporte a múltiplos hosts Docker (via TCP / DOCKER_HOST remoto)
-- [ ] Configuração persistente via arquivo YAML para overrides
+- [ ] Renomear container pela UI (sobrescreve `homelab.name`)
 
 PRs e ideias são bem-vindas.

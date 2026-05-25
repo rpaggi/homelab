@@ -13,6 +13,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     dockerSocket: process.env.DOCKER_SOCKET || '/var/run/docker.sock',
+    dataDir: process.env.HOMELAB_DATA_DIR || '/app/data',
     public: {
       refreshInterval: Number(process.env.HOMELAB_REFRESH_MS || 10000)
     }

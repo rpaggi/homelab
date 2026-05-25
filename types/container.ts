@@ -7,6 +7,7 @@ export interface ContainerPort {
 
 export interface HomelabContainer {
   id: string
+  key: string
   name: string
   image: string
   state: string
@@ -17,4 +18,5 @@ export interface HomelabContainer {
   url?: string
   ports: ContainerPort[]
   labels: Record<string, string>
+  hidden: boolean
 }

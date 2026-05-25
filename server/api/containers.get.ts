@@ -1,4 +1,5 @@
 import { getDocker } from '../utils/docker'
+import { loadSettings } from '../utils/settings'
 import type { HomelabContainer, ContainerPort } from '~/types/container'
 
 function cleanName(raw: string): string {
@@ -14,6 +15,7 @@ function prettifyName(raw: string): string {
 export default defineEventHandler(async (event): Promise<HomelabContainer[]> => {
   const config = useRuntimeConfig(event)
   const docker = getDocker(config.dockerSocket as string)
+  const settings = await loadSettings(config.dataDir as string)
 
   let raw
   try {
@@ -32,6 +34,7 @@ export default defineEventHandler(async (event): Promise<HomelabContainer[]> => 
     if (labels['homelab.enable'] === 'false') continue
 
     const rawName = c.Names[0] || c.Id.slice(0, 12)
+    const key = cleanName(rawName)
     const name = labels['homelab.name'] || prettifyName(rawName)
 
     const ports: ContainerPort[] = (c.Ports || [])
@@ -49,6 +52,7 @@ export default defineEventHandler(async (event): Promise<HomelabContainer[]> => 
 
     items.push({
       id: c.Id,
+      key,
       name,
       image: c.Image,
       state: c.State,
@@ -58,9 +62,18 @@ export default defineEventHandler(async (event): Promise<HomelabContainer[]> => 
       group: labels['homelab.group'] || 'Uncategorized',
       url: labels['homelab.url'],
       ports: uniquePorts,
-      labels
+      labels,
+      hidden: settings.containers[key]?.hidden === true
     })
   }
 
-  return items.sort((a, b) => a.name.localeCompare(b.name))
+  const orderIndex = new Map(settings.order.map((k, i) => [k, i]))
+  return items.sort((a, b) => {
+    const ai = orderIndex.get(a.key)
+    const bi = orderIndex.get(b.key)
+    if (ai !== undefined && bi !== undefined) return ai - bi
+    if (ai !== undefined) return -1
+    if (bi !== undefined) return 1
+    return a.name.localeCompare(b.name)
+  })
 })

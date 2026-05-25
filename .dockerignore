@@ -11,3 +11,5 @@ README.md
 .vscode
 .idea
 npm-debug.log
+data
+docs
