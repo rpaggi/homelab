@@ -6,7 +6,7 @@ const config = useRuntimeConfig()
 const search = ref('')
 const editMode = ref(false)
 
-const { settings, pending: savingSettings, load: loadSettings, setHidden, setOrder, setPort } =
+const { settings, pending: savingSettings, load: loadSettings, setHidden, setOrder, setOverride } =
   useHomelabSettings()
 
 const { data, pending, error, refresh } = await useFetch<HomelabContainer[]>(
@@ -40,11 +40,19 @@ function rebuildGroups() {
   const q = search.value.trim().toLowerCase()
   const orderIdx = new Map(settings.value.order.map((k, i) => [k, i]))
 
-  const enriched = (data.value || []).map((c) => ({
-    ...c,
-    hidden: settings.value.containers[c.key]?.hidden === true,
-    customPort: settings.value.containers[c.key]?.port
-  }))
+  const enriched = (data.value || []).map((c) => {
+    const o = settings.value.containers[c.key] || {}
+    return {
+      ...c,
+      hidden: o.hidden === true,
+      customPort: o.port,
+      name: o.name || c.name,
+      description: o.description || c.description,
+      icon: o.icon || c.icon,
+      group: o.group || c.group,
+      url: o.url || c.url
+    }
+  })
 
   const filtered = enriched.filter((c) => {
     if (!editMode.value && c.hidden) return false
@@ -100,8 +108,34 @@ function onToggleHide(key: string) {
   setHidden(key, !current)
 }
 
-function onSetPort(key: string, port: number | null) {
-  setPort(key, port)
+const settingsTargetKey = ref<string | null>(null)
+const settingsTarget = computed<HomelabContainer | null>(() => {
+  if (!settingsTargetKey.value) return null
+  return (data.value || []).find((c) => c.key === settingsTargetKey.value) || null
+})
+
+function onOpenSettings(key: string) {
+  settingsTargetKey.value = key
+}
+
+function onModalUpdate(patch: Partial<import('~/types/settings').ContainerSettings>) {
+  if (!settingsTargetKey.value) return
+  setOverride(settingsTargetKey.value, patch)
+}
+
+function onModalReset() {
+  if (!settingsTargetKey.value) return
+  const key = settingsTargetKey.value
+  const current = settings.value.containers[key]
+  if (!current) return
+  setOverride(key, {
+    name: null as any,
+    description: null as any,
+    icon: null as any,
+    group: null as any,
+    url: null as any,
+    port: null as any
+  })
 }
 
 const totalRunning = computed(() => data.value?.length || 0)
@@ -172,8 +206,7 @@ const totalHidden = computed(
     </header>
 
     <div v-if="editMode" class="mb-6 rounded-xl border border-sky-900/60 bg-sky-950/30 p-3 text-xs text-sky-200">
-      Modo edição: arraste os cards pra reordenar dentro de cada grupo e use o
-      botão de olho pra esconder/mostrar.
+      Modo edição: arraste pra reordenar, use o olho pra esconder e a engrenagem pra personalizar nome, ícone, grupo, URL ou porta.
     </div>
 
     <div v-if="error" class="rounded-xl border border-red-900/60 bg-red-950/40 p-4 text-sm text-red-300">
@@ -209,10 +242,19 @@ const totalHidden = computed(
             :container="c"
             :edit-mode="editMode"
             @toggle-hide="onToggleHide"
-            @set-port="onSetPort"
+            @open-settings="onOpenSettings"
           />
         </VueDraggable>
       </section>
     </div>
+
+    <ContainerSettingsModal
+      v-if="settingsTarget"
+      :container="settingsTarget"
+      :current="settings.containers[settingsTarget.key] || {}"
+      @close="settingsTargetKey = null"
+      @update="onModalUpdate"
+      @reset="onModalReset"
+    />
   </main>
 </template>

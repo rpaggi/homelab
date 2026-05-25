@@ -1,6 +1,11 @@
 export interface ContainerSettings {
   hidden?: boolean
   port?: number
+  name?: string
+  description?: string
+  icon?: string
+  group?: string
+  url?: string
 }
 
 export interface HomelabSettings {

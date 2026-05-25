@@ -23,7 +23,7 @@
 - 🔍 **Auto-descoberta** — lista todo container Docker em execução, sem precisar cadastrar nada.
 - 🏷️ **Customização via labels** — dê nome bonito, ícone, descrição e grupo aos seus serviços direto no `docker-compose.yml`.
 - 🌐 **Host-aware** — funciona sem config em **LAN, Tailscale ou hostname** simultaneamente: a URL dos cards usa o mesmo host que você usou pra abrir o dashboard.
-- ✏️ **Modo edição na UI** — arraste pra reordenar e clique no olho pra esconder cards. Persiste em `data/settings.json` (sem banco).
+- ✏️ **Modo edição na UI** — arraste pra reordenar, esconda cards e edite nome/ícone/descrição/grupo/URL/porta de cada container num modal. Persiste em `data/settings.json` (sem banco).
 - 🎯 **Filtro instantâneo** — busque por nome, imagem, descrição ou grupo.
 - 📦 **Agrupamento** — cards organizados por categoria (Media, Database, System…).
 - 🔄 **Auto-refresh** — recarrega a lista a cada 10s (configurável).
@@ -138,10 +138,16 @@ labels:
 Clique em **Editar** no header pra:
 
 - **Arrastar e soltar** cards pra reordenar dentro de cada grupo (drag-and-drop).
-- **Esconder/mostrar** containers que você não quer ver na home (clique no ícone de olho no canto do card).
-- **Definir uma porta custom** por container — útil pra:
-  - Containers em `network_mode: host` (não expõem porta via Docker, mas você quer acessar).
-  - Apps com múltiplas portas onde a primeira detectada não é a "boa" (ex: MinIO expõe 9000 + 9001 mas o console fica na 9001).
+- **Esconder/mostrar** containers (ícone de olho no canto do card).
+- **Personalizar tudo** clicando na engrenagem ⚙️ do card — abre um modal pra editar:
+  - **Nome** exibido
+  - **Descrição**
+  - **Ícone** (URL — funciona com [dashboard-icons](https://github.com/walkxcode/dashboard-icons))
+  - **Grupo** (move o card entre grupos; criar grupo novo é só digitar)
+  - **URL custom** (sobrescreve a auto-detecção)
+  - **Porta** (útil pra `network_mode: host` ou pra escolher entre múltiplas portas expostas)
+
+> Qualquer override em branco volta ao default (label do container ou auto-detectado).
 
 Tudo é salvo automaticamente em `./data/settings.json` no host. Sem banco, sem mágica:
 
@@ -150,11 +156,17 @@ Tudo é salvo automaticamente em `./data/settings.json` no host. Sem banco, sem 
   "order": ["plex", "sonarr", "homelab"],
   "containers": {
     "mysql-test": { "hidden": true },
-    "pihole":     { "port": 80 },
-    "minio":      { "port": 9001 }
+    "minio":      { "port": 9001 },
+    "octane":     {
+      "name": "Octane API",
+      "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/laravel.png",
+      "group": "Backend"
+    }
   }
 }
 ```
+
+**Prioridade**: override da UI > label `homelab.*` no compose > default (auto-detectado).
 
 A chave é o **nome real do container** Docker — estável entre recreates. Você pode editar esse arquivo na mão se quiser; o dashboard pega na próxima request.
 

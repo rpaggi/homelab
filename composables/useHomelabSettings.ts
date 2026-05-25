@@ -1,6 +1,10 @@
-import type { HomelabSettings } from '~/types/settings'
+import type { ContainerSettings, HomelabSettings } from '~/types/settings'
 
 const STATE_KEY = 'homelab-settings'
+
+function isEmpty(value: unknown): boolean {
+  return value === null || value === undefined || value === ''
+}
 
 export function useHomelabSettings() {
   const settings = useState<HomelabSettings>(STATE_KEY, () => ({
@@ -42,12 +46,25 @@ export function useHomelabSettings() {
     }, 200)
   }
 
-  function setHidden(key: string, hidden: boolean) {
-    settings.value.containers[key] = {
-      ...settings.value.containers[key],
-      hidden
+  function setOverride(key: string, patch: Partial<ContainerSettings>) {
+    const current: ContainerSettings = { ...(settings.value.containers[key] || {}) }
+    for (const [k, v] of Object.entries(patch) as [keyof ContainerSettings, unknown][]) {
+      if (isEmpty(v)) {
+        delete current[k]
+      } else {
+        ;(current as any)[k] = v
+      }
+    }
+    if (Object.keys(current).length === 0) {
+      delete settings.value.containers[key]
+    } else {
+      settings.value.containers[key] = current
     }
     schedulePersist()
+  }
+
+  function setHidden(key: string, hidden: boolean) {
+    setOverride(key, { hidden: hidden ? true : null as any })
   }
 
   function setOrder(order: string[]) {
@@ -56,11 +73,7 @@ export function useHomelabSettings() {
   }
 
   function setPort(key: string, port: number | null) {
-    const current = { ...settings.value.containers[key] }
-    if (port === null) delete current.port
-    else current.port = port
-    settings.value.containers[key] = current
-    schedulePersist()
+    setOverride(key, { port: port as any })
   }
 
   return {
@@ -70,6 +83,7 @@ export function useHomelabSettings() {
     load,
     setHidden,
     setOrder,
-    setPort
+    setPort,
+    setOverride
   }
 }
