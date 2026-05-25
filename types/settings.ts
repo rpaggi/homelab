@@ -1,5 +1,6 @@
 export interface ContainerSettings {
   hidden?: boolean
+  port?: number
 }
 
 export interface HomelabSettings {

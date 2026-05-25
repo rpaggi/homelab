@@ -19,4 +19,5 @@ export interface HomelabContainer {
   ports: ContainerPort[]
   labels: Record<string, string>
   hidden: boolean
+  customPort?: number
 }

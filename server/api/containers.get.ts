@@ -63,7 +63,8 @@ export default defineEventHandler(async (event): Promise<HomelabContainer[]> => 
       url: labels['homelab.url'],
       ports: uniquePorts,
       labels,
-      hidden: settings.containers[key]?.hidden === true
+      hidden: settings.containers[key]?.hidden === true,
+      customPort: settings.containers[key]?.port
     })
   }
 

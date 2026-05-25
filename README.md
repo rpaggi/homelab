@@ -139,6 +139,9 @@ Clique em **Editar** no header pra:
 
 - **Arrastar e soltar** cards pra reordenar dentro de cada grupo (drag-and-drop).
 - **Esconder/mostrar** containers que você não quer ver na home (clique no ícone de olho no canto do card).
+- **Definir uma porta custom** por container — útil pra:
+  - Containers em `network_mode: host` (não expõem porta via Docker, mas você quer acessar).
+  - Apps com múltiplas portas onde a primeira detectada não é a "boa" (ex: MinIO expõe 9000 + 9001 mas o console fica na 9001).
 
 Tudo é salvo automaticamente em `./data/settings.json` no host. Sem banco, sem mágica:
 
@@ -146,7 +149,9 @@ Tudo é salvo automaticamente em `./data/settings.json` no host. Sem banco, sem 
 {
   "order": ["plex", "sonarr", "homelab"],
   "containers": {
-    "mysql-test": { "hidden": true }
+    "mysql-test": { "hidden": true },
+    "pihole":     { "port": 80 },
+    "minio":      { "port": 9001 }
   }
 }
 ```

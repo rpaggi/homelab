@@ -13,24 +13,26 @@ export function useHomelabSettings() {
   async function load() {
     try {
       const data = await $fetch<HomelabSettings>('/api/settings')
-      settings.value = data
+      settings.value.order = data.order
+      settings.value.containers = data.containers
     } catch (err: any) {
       error.value = err?.message || 'failed to load settings'
     }
   }
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null
-  async function persist(next: HomelabSettings) {
+  function schedulePersist() {
     if (saveTimer) clearTimeout(saveTimer)
-    settings.value = next
     saveTimer = setTimeout(async () => {
       pending.value = true
       try {
-        const data = await $fetch<HomelabSettings>('/api/settings', {
+        await $fetch('/api/settings', {
           method: 'PUT',
-          body: next
+          body: {
+            order: settings.value.order,
+            containers: settings.value.containers
+          }
         })
-        settings.value = data
         error.value = null
       } catch (err: any) {
         error.value = err?.message || 'failed to save settings'
@@ -41,18 +43,24 @@ export function useHomelabSettings() {
   }
 
   function setHidden(key: string, hidden: boolean) {
-    const next: HomelabSettings = {
-      order: settings.value.order,
-      containers: {
-        ...settings.value.containers,
-        [key]: { ...settings.value.containers[key], hidden }
-      }
+    settings.value.containers[key] = {
+      ...settings.value.containers[key],
+      hidden
     }
-    persist(next)
+    schedulePersist()
   }
 
   function setOrder(order: string[]) {
-    persist({ ...settings.value, order })
+    settings.value.order = order
+    schedulePersist()
+  }
+
+  function setPort(key: string, port: number | null) {
+    const current = { ...settings.value.containers[key] }
+    if (port === null) delete current.port
+    else current.port = port
+    settings.value.containers[key] = current
+    schedulePersist()
   }
 
   return {
@@ -61,6 +69,7 @@ export function useHomelabSettings() {
     error,
     load,
     setHidden,
-    setOrder
+    setOrder,
+    setPort
   }
 }

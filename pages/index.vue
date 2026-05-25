@@ -6,7 +6,7 @@ const config = useRuntimeConfig()
 const search = ref('')
 const editMode = ref(false)
 
-const { settings, pending: savingSettings, load: loadSettings, setHidden, setOrder } =
+const { settings, pending: savingSettings, load: loadSettings, setHidden, setOrder, setPort } =
   useHomelabSettings()
 
 const { data, pending, error, refresh } = await useFetch<HomelabContainer[]>(
@@ -38,8 +38,15 @@ const groups = ref<GroupView[]>([])
 
 function rebuildGroups() {
   const q = search.value.trim().toLowerCase()
-  const all = data.value || []
-  const filtered = all.filter((c) => {
+  const orderIdx = new Map(settings.value.order.map((k, i) => [k, i]))
+
+  const enriched = (data.value || []).map((c) => ({
+    ...c,
+    hidden: settings.value.containers[c.key]?.hidden === true,
+    customPort: settings.value.containers[c.key]?.port
+  }))
+
+  const filtered = enriched.filter((c) => {
     if (!editMode.value && c.hidden) return false
     if (!q) return true
     return (
@@ -48,6 +55,15 @@ function rebuildGroups() {
       (c.description || '').toLowerCase().includes(q) ||
       c.group.toLowerCase().includes(q)
     )
+  })
+
+  filtered.sort((a, b) => {
+    const ai = orderIdx.get(a.key)
+    const bi = orderIdx.get(b.key)
+    if (ai !== undefined && bi !== undefined) return ai - bi
+    if (ai !== undefined) return -1
+    if (bi !== undefined) return 1
+    return a.name.localeCompare(b.name)
   })
 
   const map = new Map<string, HomelabContainer[]>()
@@ -82,6 +98,10 @@ function onReorder() {
 function onToggleHide(key: string) {
   const current = settings.value.containers[key]?.hidden === true
   setHidden(key, !current)
+}
+
+function onSetPort(key: string, port: number | null) {
+  setPort(key, port)
 }
 
 const totalRunning = computed(() => data.value?.length || 0)
@@ -189,6 +209,7 @@ const totalHidden = computed(
             :container="c"
             :edit-mode="editMode"
             @toggle-hide="onToggleHide"
+            @set-port="onSetPort"
           />
         </VueDraggable>
       </section>

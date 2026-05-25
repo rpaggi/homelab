@@ -8,6 +8,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   toggleHide: [key: string]
+  setPort: [key: string, port: number | null]
 }>()
 
 const hostname = ref('')
@@ -15,14 +16,38 @@ onMounted(() => {
   hostname.value = window.location.hostname
 })
 
+const effectivePort = computed<number | undefined>(() => {
+  return props.container.customPort ?? props.container.ports[0]?.publicPort
+})
+
 const resolvedUrl = computed<string | undefined>(() => {
   if (props.container.url) return props.container.url
   if (!hostname.value) return undefined
-  const first = props.container.ports[0]
-  if (!first?.publicPort) return undefined
-  const scheme = first.publicPort === 443 ? 'https' : 'http'
-  return `${scheme}://${hostname.value}:${first.publicPort}`
+  const port = effectivePort.value
+  if (!port) return undefined
+  const scheme = port === 443 ? 'https' : 'http'
+  return `${scheme}://${hostname.value}:${port}`
 })
+
+const portInput = ref<string>('')
+watch(
+  () => props.container.customPort,
+  (val) => {
+    portInput.value = val ? String(val) : ''
+  },
+  { immediate: true }
+)
+
+function onPortChange(e: Event) {
+  const raw = (e.target as HTMLInputElement).value.trim()
+  if (!raw) {
+    emit('setPort', props.container.key, null)
+    return
+  }
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n <= 0 || n > 65535) return
+  emit('setPort', props.container.key, n)
+}
 
 const isLink = computed(() => !props.editMode && !!resolvedUrl.value)
 
@@ -49,6 +74,8 @@ function onHideClick(e: MouseEvent) {
   e.stopPropagation()
   emit('toggleHide', props.container.key)
 }
+
+const autoDetectedPort = computed(() => props.container.ports[0]?.publicPort)
 </script>
 
 <template>
@@ -114,13 +141,45 @@ function onHideClick(e: MouseEvent) {
       <span
         v-for="p in container.ports"
         :key="`${p.publicPort}-${p.type}`"
-        class="rounded-md bg-slate-800 px-2 py-0.5 font-mono text-xs text-slate-300"
+        class="rounded-md px-2 py-0.5 font-mono text-xs"
+        :class="
+          container.customPort && container.customPort === p.publicPort
+            ? 'bg-sky-900/50 text-sky-200 ring-1 ring-sky-700/50'
+            : 'bg-slate-800 text-slate-300'
+        "
       >
         {{ p.publicPort }}<span class="text-slate-500">/{{ p.type }}</span>
       </span>
+      <span
+        v-if="container.customPort && !container.ports.some(p => p.publicPort === container.customPort)"
+        class="rounded-md bg-sky-900/50 px-2 py-0.5 font-mono text-xs text-sky-200 ring-1 ring-sky-700/50"
+      >
+        {{ container.customPort }}<span class="text-slate-400">/custom</span>
+      </span>
     </div>
-    <div v-else class="text-xs italic text-slate-500">
+    <div v-else-if="!editMode && container.customPort" class="flex flex-wrap gap-1.5">
+      <span class="rounded-md bg-sky-900/50 px-2 py-0.5 font-mono text-xs text-sky-200 ring-1 ring-sky-700/50">
+        {{ container.customPort }}<span class="text-slate-400">/custom</span>
+      </span>
+    </div>
+    <div v-else-if="!editMode" class="text-xs italic text-slate-500">
       sem portas expostas
+    </div>
+
+    <div v-if="editMode" class="no-drag" @mousedown.stop @click.stop>
+      <label class="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/50 px-2.5 py-1.5">
+        <span class="text-[10px] uppercase tracking-wider text-slate-500">Porta</span>
+        <input
+          :value="portInput"
+          type="number"
+          min="1"
+          max="65535"
+          :placeholder="autoDetectedPort ? String(autoDetectedPort) : 'ex: 8080'"
+          class="w-full bg-transparent text-xs font-mono text-slate-100 placeholder-slate-600 outline-none"
+          @input="(e) => portInput = (e.target as HTMLInputElement).value"
+          @change="onPortChange"
+        />
+      </label>
     </div>
   </component>
 </template>
